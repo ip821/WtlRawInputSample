@@ -21,6 +21,10 @@ BOOL CMainDlg::OnIdle()
 LRESULT CMainDlg::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
 {
     m_listBox.Attach(GetDlgItem(IDC_LIST_KEYBOARDS));
+    m_staticDeviceDesc.Attach(GetDlgItem(IDC_STATIC_DEVICE));
+    m_editLog.Attach(GetDlgItem(IDC_EDIT_LOG));
+
+    m_staticDeviceDesc.SetWindowText(L"");
 
     // center the dialog on the screen
     CenterWindow();
@@ -44,14 +48,13 @@ LRESULT CMainDlg::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam
     vector<RAWINPUTDEVICELIST> vDeviceList(cDeviceNum);
     res = GetRawInputDeviceList(&vDeviceList[0], &cDeviceNum, sizeof(RAWINPUTDEVICELIST));
 
-    vector<RAWINPUTDEVICELIST> vKeyboards;
-    for(auto& it : vDeviceList)
+    for (auto& it : vDeviceList)
     {
-        //if (it.dwType & RIM_TYPEKEYBOARD)
-            vKeyboards.push_back(it);
+        if (it.dwType & RIM_TYPEKEYBOARD)
+            m_vKeyboards.push_back(it);
     }
 
-    for (auto& it : vKeyboards)
+    for (auto& it : m_vKeyboards)
     {
         UINT uiSize = 0;
         res = GetRawInputDeviceInfo(it.hDevice, RIDI_DEVICENAME, nullptr, &uiSize);
@@ -88,12 +91,38 @@ LRESULT CMainDlg::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam
             strDesc.ReleaseBuffer();
         }
 
+        RAWINPUTDEVICE rid = { 0 };
+        rid.hwndTarget = m_hWnd;
+        rid.dwFlags = RIDEV_INPUTSINK;
+        rid.usUsagePage = 0x01;
+        rid.usUsage = 0x06;
+        auto bRes = RegisterRawInputDevices(&rid, 1, sizeof(RAWINPUTDEVICE));
+
         vector<CString> vDescTokens;
         StrSplit(strDesc, L";", vDescTokens);
         m_listBox.AddString(vDescTokens[1]);
+        m_vKeyboardsDesc.push_back(vDescTokens[1]);
     }
 
     return TRUE;
+}
+
+LRESULT CMainDlg::OnInput(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/)
+{
+    RAWINPUT ri = { 0 };
+    UINT uiSize = sizeof(RAWKEYBOARD) + sizeof(RAWINPUTHEADER);
+    auto res = GetRawInputData((HRAWINPUT)lParam, RID_INPUT, &ri, &uiSize, sizeof(RAWINPUTHEADER));
+    res = GetRawInputData((HRAWINPUT)lParam, RID_HEADER, &ri, &uiSize, sizeof(RAWINPUTHEADER));
+    if (ri.data.keyboard.Message == WM_KEYDOWN)
+    {
+        auto index = find_if(m_vKeyboards.cbegin(), m_vKeyboards.cend(), [&](auto it) {
+            return it.hDevice == ri.header.hDevice;
+        }) - m_vKeyboards.cbegin();
+        m_staticDeviceDesc.SetWindowText(m_vKeyboardsDesc[index]);
+        m_editLog.AppendText(CString((TCHAR)ri.data.keyboard.VKey));
+        m_editLog.AppendText(L"\n");
+    }
+    return 0;
 }
 
 LRESULT CMainDlg::OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
