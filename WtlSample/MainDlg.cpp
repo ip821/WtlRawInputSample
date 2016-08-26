@@ -43,6 +43,20 @@ LRESULT CMainDlg::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam
 
     UIAddChildWindowContainer(m_hWnd);
 
+    ReloadDeviceList();
+
+    return TRUE;
+}
+
+void CMainDlg::ReloadDeviceList()
+{
+    m_listBox.ResetContent();
+    m_staticDeviceDesc.SetWindowText(L"");
+    m_editLog.SetWindowText(L"");
+
+    m_vKeyboards.clear();
+    m_vKeyboardsDesc.clear();
+
     UINT cDeviceNum = 0;
     auto res = GetRawInputDeviceList(NULL, &cDeviceNum, sizeof(RAWINPUTDEVICELIST));
     vector<RAWINPUTDEVICELIST> vDeviceList(cDeviceNum);
@@ -91,20 +105,31 @@ LRESULT CMainDlg::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam
             strDesc.ReleaseBuffer();
         }
 
-        RAWINPUTDEVICE rid = { 0 };
-        rid.hwndTarget = m_hWnd;
-        rid.dwFlags = RIDEV_INPUTSINK;
-        rid.usUsagePage = 0x01;
-        rid.usUsage = 0x06;
-        auto bRes = RegisterRawInputDevices(&rid, 1, sizeof(RAWINPUTDEVICE));
-
         vector<CString> vDescTokens;
         StrSplit(strDesc, L";", vDescTokens);
         m_listBox.AddString(vDescTokens[1]);
         m_vKeyboardsDesc.push_back(vDescTokens[1]);
     }
 
-    return TRUE;
+    RAWINPUTDEVICE rid = { 0 };
+    rid.hwndTarget = m_hWnd;
+    rid.dwFlags = RIDEV_INPUTSINK | RIDEV_DEVNOTIFY;
+    rid.usUsagePage = 0x01;
+    rid.usUsage = 0x06;
+    auto bRes = RegisterRawInputDevices(&rid, 1, sizeof(RAWINPUTDEVICE));
+}
+
+LRESULT CMainDlg::OnInputDeviceChange(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
+{
+    auto it = find_if(m_vKeyboards.cbegin(), m_vKeyboards.cend(), [&](auto it) {
+        return it.hDevice == (HANDLE)lParam;
+    });
+    if (it == m_vKeyboards.cend() || wParam == GIDC_REMOVAL)
+    {
+        ReloadDeviceList();
+    }
+    bHandled = FALSE;
+    return 0;
 }
 
 LRESULT CMainDlg::OnInput(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& /*bHandled*/)

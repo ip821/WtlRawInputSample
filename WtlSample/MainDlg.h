@@ -20,6 +20,7 @@ public:
         MESSAGE_HANDLER(WM_INITDIALOG, OnInitDialog)
         MESSAGE_HANDLER(WM_DESTROY, OnDestroy)
         MESSAGE_HANDLER(WM_INPUT, OnInput);
+        MESSAGE_HANDLER(WM_INPUT_DEVICE_CHANGE, OnInputDeviceChange);
         COMMAND_ID_HANDLER(IDOK, OnOK)
         COMMAND_ID_HANDLER(IDCANCEL, OnCancel)
 	END_MSG_MAP()
@@ -41,6 +42,8 @@ private:
 	LRESULT OnOK(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnCancel(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
     LRESULT OnInput(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
+    LRESULT OnInputDeviceChange(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
    
 	void CloseDialog(int nVal);
+    void ReloadDeviceList();
 };
